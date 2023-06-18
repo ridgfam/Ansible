@@ -1,0 +1,8 @@
+- hosts: "*"
+  become: yes
+  tasks:
+    - name: apt
+      apt:
+        update_cache: true
+        update_cache_retries: 5
+        upgrade: 'yes'

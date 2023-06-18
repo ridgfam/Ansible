@@ -1,0 +1,8 @@
+- hosts: "*"
+  roles:
+    - role: diodonfrost.p10k
+      users:
+        - username: ridgfam ## Username of the account you'd like to install Oh-My-Zsh to. Use "ansible-galaxy install diodonfrost.p10k" first.
+                         ## https://galaxy.ansible.com/diodonfrost/p10k
+#      users:
+#        - username: someuser
