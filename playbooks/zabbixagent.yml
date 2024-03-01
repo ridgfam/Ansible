@@ -1,0 +1,6 @@
+    - hosts: all
+      roles:
+        - role: zabbix.zabbix.zabbix_agent
+          param_serveractive: 10.5.1.8,hl-rf-zeffo  # address of Zabbix server to connect using active checks;
+          param_startagents: 0            # do not spawn passive check processes that listen for connections;
+          param_hostmetadata: '{{ group_names | join(",") }}'   # concatenate group list to the string;

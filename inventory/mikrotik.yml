@@ -1,0 +1,7 @@
+all:
+  hosts:
+    mikrotik-router:
+      ansible_host: 192.168.6.1
+      ansible_network_os: mikrotik
+      ansible_user: elijahq
+      ansible_password: Br@ndy0l1v45

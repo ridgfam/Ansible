@@ -1,0 +1,94 @@
+---
+- name: Check NetBox against Zabbix and add missing hosts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    netbox_url: "http://netbox.ridgfam.com/api/dcim/devices/"
+    netbox_token: "98cbd198b137ef2b2865bece795a737fa06aa4a0"
+    zabbix_api_url: "https://zabbix.ridgfam.com/api_jsonrpc.php"
+    zabbix_username: "API"
+    zabbix_password: "OsP9F3yqO0^^NS*C"
+    zabbix_template_name: "Generic SNMP"
+
+  tasks:
+    - name: Query NetBox for devices
+      uri:
+        url: "{{ netbox_url }}"
+        method: GET
+        return_content: yes
+        headers:
+          accept: "application/json"
+          Authorization: "Token {{ netbox_token }}"
+      register: netbox_devices
+
+    - name: Fetch existing hosts from Zabbix
+      uri:
+        url: "{{ zabbix_api_url }}"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.get"
+          params:
+            output: "extend"
+            selectInterfaces: "extend"
+            selectParentTemplates: ["templateid"]
+            filter:
+              host: []
+          auth: "{{ zabbix_auth_token }}"
+          id: 1
+      register: zabbix_hosts
+      when: zabbix_auth_token is defined
+
+    - name: Authenticate with Zabbix API
+      uri:
+        url: "{{ zabbix_api_url }}"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "user.login"
+          params:
+            user: "{{ zabbix_username }}"
+            password: "{{ zabbix_password }}"
+          id: 1
+      register: zabbix_login
+
+    - set_fact:
+        zabbix_auth_token: "{{ zabbix_login.json.result }}"
+      when: zabbix_login.json.result is defined
+
+    - name: Create missing hosts in Zabbix
+      uri:
+        url: "{{ zabbix_api_url }}"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.create"
+          params:
+            host: "{{ item.name }}"
+            interfaces: [
+              {
+                type: 1,
+                main: 1,
+                useip: 1,
+                ip: "{{ item.primary_ip }}",
+                dns: "{{ item.name }}",
+                port: 10050
+              }
+            ]
+            templates: [
+              {
+                templateid: "{{ zabbix_template_id }}"
+              }
+            ]
+          auth: "{{ zabbix_auth_token }}"
+          id: 1
+      register: zabbix_create_host
+      loop: "{{ netbox_devices.json.results }}"
+      when: zabbix_auth_token is defined and item.name not in zabbix_hosts.json.result | map(attribute='host') | list
+
+    - name: Debug zabbix_create_host
+      debug:
+        var: zabbix_create_host

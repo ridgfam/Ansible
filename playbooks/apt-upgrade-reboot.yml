@@ -1,0 +1,35 @@
+- name: Upgrade packages and reboot if required
+  hosts: "*"
+  become: yes  # Run tasks with sudo
+  gather_facts: yes  # Gather facts about the system
+
+  tasks:
+    - name: Upgrade packages using apt
+      apt:
+        update_cache: true
+        update_cache_retries: 5
+        upgrade: 'yes'
+      register: upgrade_result
+      changed_when: upgrade_result.stdout_lines | length > 0
+
+- name: Reboot Check
+  hosts: all
+  tasks:
+    - name: Check that the reboot-required file exists
+      stat:
+        path: /var/run/reboot-required
+      register: p
+    - debug:
+        msg: "Reboot required"
+      when: p.stat.exists
+
+    - name: Reboot if required
+      reboot:
+      async: 0
+      poll: 0
+      when: p.stat.exists
+
+  handlers:
+    - name: Wait for hosts to come back after reboot
+      wait_for_connection:
+        timeout: 300

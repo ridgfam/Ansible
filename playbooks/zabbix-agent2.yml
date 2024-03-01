@@ -1,0 +1,4 @@
+    - hosts: all
+      become: true
+      roles:
+         - { role: revenni.zabbix_agent2, tags: zabbix_agent2 }

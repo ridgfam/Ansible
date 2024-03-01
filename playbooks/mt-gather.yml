@@ -1,0 +1,13 @@
+---
+- name: Gather MikroTik Configuration
+  hosts: mikrotik-router
+  gather_facts: no
+  tasks:
+    - name: Get Running Configuration
+      ansible.builtin.netmiko_send_command:
+        command_string: "/export"
+      register: mikrotik_config
+    - name: Save Configuration to File
+      copy:
+        content: "{{ mikrotik_config.stdout_lines | join('\n') }}"
+        dest: /path/to/save/mikrotik-config.txt

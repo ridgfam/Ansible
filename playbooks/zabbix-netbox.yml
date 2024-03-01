@@ -1,0 +1,56 @@
+---
+- name: Check NetBox and add missing hosts to Zabbix
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Get hosts from NetBox
+      uri:
+        url: "https://netbox.ridgfam.com/api/dcim/devices/"
+        method: GET
+        headers:
+          Content-Type: application/json
+          Authorization: "e1139dc1d9f3b6256d9da605385c6ac4987f27df"
+      register: netbox_hosts
+      failed_when: netbox_hosts.status != 200
+
+    - name: Parse NetBox hosts
+      set_fact:
+        netbox_hostnames: "{{ netbox_hosts.json.results | map(attribute='name') | list }}"
+
+    - name: Get hosts from Zabbix
+      zabbix_host_info:
+        server_url: https://zabbix.ridgfam.com/api_jsonrpc.php
+        login_user: API
+        login_password: OsP9F3yqO0^^NS*C
+        host_filter:
+          - host: "{{ item }}"
+        output: extend
+      loop: "{{ netbox_hostnames }}"
+      register: zabbix_hosts
+      failed_when: zabbix_hosts.failed | bool
+
+    - name: Filter missing hosts
+      set_fact:
+        missing_hosts: "{{ missing_hosts | default([]) + [item.item.host] }}"
+      when: item.result | length == 0
+      loop: "{{ zabbix_hosts.results }}"
+
+    - name: Add missing hosts to Zabbix
+      zabbix_host:
+        server_url: https://zabbix.ridgfam.com/api_jsonrpc.php
+        login_user: API
+        login_password: OsP9F3yqO0^^NS*C
+        name: "{{ item }}"
+        interfaces:
+          - type: 1
+            main: 1
+            useip: 1
+            ip: "{{ hostvars[item]['ansible_default_ipv4']['address'] }}"
+            dns: ""
+            port: "10050"
+        groups:
+          - groupid: "Netbox Test"
+        templates:
+          - templateid: "Generic SNMP"
+      loop: "{{ missing_hosts }}"

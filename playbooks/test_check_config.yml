@@ -1,0 +1,16 @@
+---
+- name: Test Custom MikroTik Configuration Check Module
+  hosts: '*'
+  tasks:
+    - name: Check MikroTik Configuration
+      script: ~/Ansible/mikrotik/mikrotik_check_config.py
+      args:
+        host: 10.6.1.1
+        username: ansible
+        password: runansibleplaybook
+        search_string: "your_search_string"
+      register: result
+
+    - name: Display Module Result
+      debug:
+        var: result
