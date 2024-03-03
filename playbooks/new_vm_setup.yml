@@ -1,0 +1,47 @@
+- hosts: "*" 
+  become: yes
+  tasks:
+    - name: apt
+      apt:
+        update_cache: true
+        update_cache_retries: 5
+        upgrade: 'yes'
+
+    - name: install zsh
+      apt:
+        name: zsh
+        state: present
+        update_cache: true
+
+    - name: install oh-my-zsh
+      role:
+        name: gantsign.oh-my-zsh
+      vars:
+        users:
+          - username: ridgfam ## Username of the account you'd like to install Oh-My-Zsh to. Use "ansible-galaxy install gantsign.oh-my-zsh" first.
+
+    - name: install powerlevel10k theme
+      role: 
+        name: diodonfrost.p10k
+      vars:
+        users:
+          - username: ridgfam                   
+
+    - name: Clone a github repository
+      git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+        clone: yes
+        update: yes
+
+    - name: Add SSH Key
+      authorized_key:
+        user: ridgfam
+        key: "{{ lookup('file', '/home/ridgfam/.ssh/idrsa.pub') }}"
+    
+    - name: Set up sudoers to all no password for user
+      lineinfile:
+        dest: /etc/sudoers
+        line: "{{ ansible_user }} ALL=(ALL) NOPASSWD: ALL"
+        validate: 
+          cmd: 'visudo -cf %s'
