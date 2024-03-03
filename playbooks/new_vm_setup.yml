@@ -16,14 +16,17 @@
     - name: Add SSH Key
       authorized_key:
         user: ridgfam
-        key: "{{ lookup('file', '/home/ridgfam/.ssh/idrsa.pub') }}"
+        key: "{{ lookup('file', '/home/ridgfam/.ssh/id_rsa.pub') }}"
     
     - name: Set up sudoers to all no password for user
       lineinfile:
         dest: /etc/sudoers
-        line: "{{ ansible_user }} ALL=(ALL) NOPASSWD: ALL"
+        line: "ridgfam ALL=(ALL) NOPASSWD: ALL"
         validate: 
           cmd: 'visudo -cf %s'
+
+- hosts: "*" 
+  become: yes
   roles:
     - name: Install Oh-My-Zsh
       role: gantsign.oh-my-zsh
@@ -36,3 +39,15 @@
       vars:
         users:
           - username: ridgfam
+        users:
+          - username: ridgfam
+
+- hosts: "*"
+  become: yes
+  tasks:
+    - name: Install zsh-autosuggestions
+      git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+        clone: yes
+        update: yes
