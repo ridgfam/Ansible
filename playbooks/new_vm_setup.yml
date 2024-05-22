@@ -1,6 +1,16 @@
-- hosts: 'hl-rf-corruscant' 
+# This playbook sets up a new virtual machine by performing the following tasks:
+# 1. Updates the package cache and upgrades the system packages.
+# 2. Sets the timezone to America/Denver.
+# 3. Installs the zsh shell and common packages like htop, git, curl, and vim.
+# 4. Installs and configures the ufw firewall, allowing outgoing traffic and specific incoming ports.
+# 5. Sets up sudoers to allow the user '<user/group>' to run commands without a password.
+# 6. On the specified host, installs Oh-My-Zsh, sets up the .zshrc file, and installs zsh-autosuggestions.
+# 7. Sends a failure notification email if any task in the specified host block fails.
+
+- hosts: '<specify host>'
   become: yes
   tasks:
+    # Update and upgrade system packages
     - name: apt
       apt:
         update_cache: true
@@ -8,10 +18,12 @@
         upgrade: 'yes'
       check_mode: no
 
+    # Set timezone to America/Denver
     - name: Set timezone to America/Denver
       ansible.builtin.timezone:
         name: America/Denver
 
+    # Wait for automatic updates to finish
     - name: Wait for automatic updates to finish
       shell: |
         while lsof /var/lib/dpkg/lock-frontend; do 
@@ -20,126 +32,141 @@
       become: yes
       changed_when: false
 
+    # Install zsh
     - name: install zsh
       apt:
         name: zsh
         state: present
         update_cache: true
 
+    # Install common packages
     - name: Install common packages
       apt:
         name: ['htop', 'git', 'curl', 'vim']
         state: present
 
+    # Install ufw
     - name: Install ufw
       apt:
         name: ufw
         state: present
-    
-    - name: Deny all incoming traffic
-      ufw:
-        rule: deny
-        direction: in
-    
+       
+    # Allow all outgoing traffic
     - name: Allow all outgoing traffic
       ufw:
         rule: allow
         direction: out
 
-    - name: Allow HTTP 
+    # Allow HTTP 
+    - name: Allow HTTP
       ufw:
         rule: allow
         port: 80
         proto: tcp
 
+    # Allow HTTPS
     - name: Allow HTTPS
       ufw:
         rule: allow
         port: 443
         proto: tcp
 
+    # Allow SSH connections
     - name: Allow SSH connections
       ufw:
         rule: allow
         name: OpenSSH
 
+    # Rate limit SSH connections
     - name: Rate limit SSH connections
       ufw:
         rule: limit
         port: ssh
         proto: tcp
 
+    # Allow Zabbix agent traffic
     - name: Allow Zabbix agent traffic
       ufw:
         rule: allow
         port: '10050'
         proto: tcp
 
+    # Deny all incoming traffic
+    - name: Deny all incoming traffic
+      ufw:
+        rule: deny
+        direction: in
+
+    # Enable ufw
     - name: Enable ufw
       ufw:
         state: enabled
 
+    # Set up sudoers to allow '<user/group>' to run commands without a password
     - name: Set up sudoers to all no password for user
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
-        regexp: '^ridgfam ALL=\(ALL\) NOPASSWD: ALL'
-        line: "ridgfam ALL=(ALL) NOPASSWD: ALL"
+        regexp: '^<user/group> ALL=\(ALL\) NOPASSWD: ALL'
+        line: "<user/group> ALL=(ALL) NOPASSWD: ALL"
         validate: 'visudo -cf %s'
       become: yes
       check_mode: no
 
-- hosts: 'hl-rf-corruscant' 
+- hosts: '<specify host>' 
   become: yes
   tasks:
+    # Install Oh-My-Zsh, configure .zshrc, and install zsh-autosuggestions
     - block:
         - name: Install Oh-My-Zsh
           include_role:
             name: gantsign.oh-my-zsh
           vars:
             users:
-              - username: ridgfam
+              - username: <user/group>
 
-        - name: set file permissions for .zshrc
+        - name: Set file permissions for .zshrc
           file:
-            path: /home/ridgfam/.zshrc
+            path: /home/<user/group>/.zshrc
             mode: '0644'
-            owner: ridgfam
-            group: ridgfam
+            owner: <user/group>
+            group: <user/group>
 
         - name: Set ZSH_THEME
           lineinfile:
-            path: /home/ridgfam/.zshrc
+            path: /home/<user/group>/.zshrc
             regexp: '^ZSH_THEME='
             line: 'ZSH_THEME="agnoster"'
-            owner: ridgfam
-            group: ridgfam
+            owner: <user/group>
+            group: <user/group>
 
         - name: Set plugins
           lineinfile:
-            path: /home/ridgfam/.zshrc
+            path: /home/<user/group>/.zshrc
             regexp: '^plugins='
             line: 'plugins=(git zsh-autosuggestions history)'
-            owner: ridgfam
-            group: ridgfam
+            owner: <user/group>
+            group: <user/group>
 
         - name: Install zsh-autosuggestions
           git:
             repo: https://github.com/zsh-users/zsh-autosuggestions
-            dest: /home/ridgfam/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+            dest: /home/<user/group>/.oh-my-zsh/custom/plugins/zsh-autosuggestions
             clone: yes
             update: yes
 
+      # If any task in the block fails, send a failure notification email
       rescue:
         - name: Send failure notification
           mail:
-            to: Admin <admin@example.com>
+            to: <user/group> <email@example.com>
             subject: Ansible playbook failed
             body: 'The playbook failed. Please check the system.'
 
   handlers:
-    - name: source zshrc
-      shell: source /home/ridgfam/.zshrc
+    # Source .zshrc file
+    - name: Source .zshrc
+      shell: source /home/<user/group>/.zshrc
       args:
         executable: /bin/zsh
       become: yes
-      become_user: ridgfam
+      become_user: <user/group>
