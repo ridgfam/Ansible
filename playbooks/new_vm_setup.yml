@@ -3,14 +3,12 @@
 # 2. Sets the timezone to America/Denver.
 # 3. Installs the zsh shell and common packages like htop, git, curl, and vim.
 # 4. Installs and configures the ufw firewall, allowing outgoing traffic and specific incoming ports.
-# 5. Sets up sudoers to allow the user '<user/group>' to run commands without a password.
-# 6. On the specified host, installs Oh-My-Zsh, sets up the .zshrc file, and installs zsh-autosuggestions.
-# 7. Sends a failure notification email if any task in the specified host block fails.
+# 5. Sets up sudoers to allow the user 'ridgfam' to run commands without a password.
 
-- hosts: '<specify host>'
+- hosts: 'hl-rf-gamorr'
   become: yes
   tasks:
-    # Update and upgrade system packages
+    # Update and upgrade system packages using apt
     - name: apt
       apt:
         update_cache: true
@@ -39,7 +37,7 @@
         state: present
         update_cache: true
 
-    # Install common packages
+    # Install some common packages
     - name: Install common packages
       apt:
         name: ['htop', 'git', 'curl', 'vim']
@@ -77,8 +75,8 @@
         rule: allow
         name: OpenSSH
 
-    # Rate limit SSH connections
-    - name: Rate limit SSH connections
+    # Limit SSH connections
+    - name: Limit SSH connections
       ufw:
         rule: limit
         port: ssh
@@ -102,55 +100,64 @@
       ufw:
         state: enabled
 
-    # Set up sudoers to allow '<user/group>' to run commands without a password
+    # Set up sudoers to allow 'ridgfam' to run commands without a password
     - name: Set up sudoers to all no password for user
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
-        regexp: '^<user/group> ALL=\(ALL\) NOPASSWD: ALL'
-        line: "<user/group> ALL=(ALL) NOPASSWD: ALL"
+        regexp: '^ridgfam ALL=\(ALL\) NOPASSWD: ALL'
+        line: "ridgfam ALL=(ALL) NOPASSWD: ALL"
         validate: 'visudo -cf %s'
       become: yes
       check_mode: no
 
-- hosts: '<specify host>' 
+# 6. On the specified host, installs Oh-My-Zsh
+# 7. Sets up the .zshrc file
+# 8. Installs zsh-autosuggestions.
+# 9. Sends a failure notification email if any task in the specified host block fails.
+
+- hosts: 'hl-rf-gamorr' 
   become: yes
   tasks:
-    # Install Oh-My-Zsh, configure .zshrc, and install zsh-autosuggestions
+    # Install Oh-My-Zsh
     - block:
         - name: Install Oh-My-Zsh
           include_role:
             name: gantsign.oh-my-zsh
           vars:
             users:
-              - username: <user/group>
+              - username: ridgfam
 
+        # Configure .zshrc
         - name: Set file permissions for .zshrc
           file:
-            path: /home/<user/group>/.zshrc
+            path: /home/ridgfam/.zshrc
             mode: '0644'
-            owner: <user/group>
-            group: <user/group>
+            owner: ridgfam
+            group: ridgfam
 
+        # Set ZSH_THEME to agnoster
         - name: Set ZSH_THEME
           lineinfile:
-            path: /home/<user/group>/.zshrc
+            path: /home/ridgfam/.zshrc
             regexp: '^ZSH_THEME='
             line: 'ZSH_THEME="agnoster"'
-            owner: <user/group>
-            group: <user/group>
+            owner: ridgfam
+            group: ridgfam
 
+        # Set standard plugins
         - name: Set plugins
           lineinfile:
-            path: /home/<user/group>/.zshrc
+            path: /home/ridgfam/.zshrc
             regexp: '^plugins='
             line: 'plugins=(git zsh-autosuggestions history)'
-            owner: <user/group>
-            group: <user/group>
+            owner: ridgfam
+            group: ridgfam
 
+        # Install zsh-autosuggestions
         - name: Install zsh-autosuggestions
           git:
             repo: https://github.com/zsh-users/zsh-autosuggestions
-            dest: /home/<user/group>/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+            dest: /home/ridgfam/.oh-my-zsh/custom/plugins/zsh-autosuggestions
             clone: yes
             update: yes
 
@@ -158,15 +165,82 @@
       rescue:
         - name: Send failure notification
           mail:
-            to: <user/group> <email@example.com>
+            to: ridgfam <elijah@ridgfam.com>
             subject: Ansible playbook failed
             body: 'The playbook failed. Please check the system.'
 
   handlers:
     # Source .zshrc file
     - name: Source .zshrc
-      shell: source /home/<user/group>/.zshrc
+      shell: source /home/ridgfam/.zshrc
       args:
         executable: /bin/zsh
       become: yes
-      become_user: <user/group>
+      become_user: ridgfam
+      
+# 10. Downloads the Zabbix release package from the specified URL and saves it to '/tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb'.
+# 11. Installs the Zabbix release package using the 'apt' module.
+# 12. Updates the apt cache using the 'apt' module.
+# 13. Installs the Zabbix agent 2 and its plugins using the 'apt' module.
+# 14. Enables and starts the Zabbix agent 2 service using the 'systemd' module.      
+
+- hosts: 'hl-rf-gamorr'
+  become: yes
+  tasks:
+    # Download current Zabbix Agent 2 repo
+    - name: Download Zabbix release
+      get_url:
+        url: https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu22.04_all.deb
+        dest: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
+    
+    # Install current Zabbix Agent 2 repo
+    - name: Install Zabbix release
+      apt:
+        deb: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
+
+    # Update apt cache
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # Install Zabbix agent 2 and any plugins
+    - name: Install Zabbix agent 2 and plugins
+      apt:
+        name:
+          - zabbix-agent2
+          - zabbix-agent2-plugin-*
+        state: present
+
+    # Enable and start Zabbix agent service
+    - name: Enable and start Zabbix agent service
+      systemd:
+        name: zabbix-agent2
+        state: started
+        enabled: yes
+
+    # Set Zabbix Server for passive checks
+    - name: Set Zabbix Server
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Server='
+        line: 'Server=10.5.1.8,zabbix.local.ridgfam.com'
+      become: yes
+      check_mode: no
+
+    # Set Zabbix Server for active checks
+    - name: Set Zabbix Server
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^ServerActive='
+        line: 'ServerActive=10.5.1.8,zabbix.local.ridgfam.com'
+      become: yes
+      check_mode: no        
+
+    # Set Hostname configured in Zabbix Server for Active checks
+    - name: Set Zabbix Server
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Hostname='
+        line: 'Hostname=<HOSTNAME>'
+      become: yes
+      check_mode: no
