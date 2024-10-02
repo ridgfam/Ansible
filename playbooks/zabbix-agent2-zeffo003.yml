@@ -1,0 +1,21 @@
+- hosts: 'ubuntu'
+  become: true
+  tasks:
+    
+    # Set Zabbix Server for passive checks
+    - name: Set Zabbix Server for passive checks
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Server='
+        line: 'Server=10.5.1.15,zabbix.local.ridgfam.com'
+      become: true
+      check_mode: no
+
+    # Set Zabbix Server for active checks
+    - name: Set Zabbix Server
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^ServerActive='
+        line: 'ServerActive=10.5.1.15,zabbix.local.ridgfam.com'
+      become: true
+      check_mode: no

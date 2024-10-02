@@ -5,8 +5,8 @@
 # 4. Installs and configures the ufw firewall, allowing outgoing traffic and specific incoming ports.
 # 5. Sets up sudoers to allow the user 'ridgfam' to run commands without a password.
 
-- hosts: 'hl-rf-gamorr'
-  become: yes
+- hosts: 'new'
+  become: true
   tasks:
     # Update and upgrade system packages using apt
     - name: apt
@@ -15,7 +15,7 @@
         update_cache_retries: 5
         upgrade: 'yes'
       check_mode: no
-
+    
     # Set timezone to America/Denver
     - name: Set timezone to America/Denver
       ansible.builtin.timezone:
@@ -27,17 +27,17 @@
         while lsof /var/lib/dpkg/lock-frontend; do 
           sleep 2; 
         done
-      become: yes
+      become: true
       changed_when: false
 
-    # Install zsh
+    # # Install zsh
     - name: install zsh
       apt:
         name: zsh
         state: present
         update_cache: true
 
-    # Install some common packages
+    # # Install some common packages
     - name: Install common packages
       apt:
         name: ['htop', 'git', 'curl', 'vim']
@@ -101,23 +101,19 @@
         state: enabled
 
     # Set up sudoers to allow 'ridgfam' to run commands without a password
-    - name: Set up sudoers to all no password for user
+    - name: Set up sudoers to allow no password for user
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
         regexp: '^ridgfam ALL=\(ALL\) NOPASSWD: ALL'
         line: "ridgfam ALL=(ALL) NOPASSWD: ALL"
         validate: 'visudo -cf %s'
-      become: yes
+      become: true
       check_mode: no
 
 # 6. On the specified host, installs Oh-My-Zsh
 # 7. Sets up the .zshrc file
 # 8. Installs zsh-autosuggestions.
 # 9. Sends a failure notification email if any task in the specified host block fails.
-
-- hosts: 'hl-rf-gamorr' 
-  become: yes
-  tasks:
     # Install Oh-My-Zsh
     - block:
         - name: Install Oh-My-Zsh
@@ -127,7 +123,7 @@
             users:
               - username: ridgfam
 
-        # Configure .zshrc
+         # Configure .zshrc
         - name: Set file permissions for .zshrc
           file:
             path: /home/ridgfam/.zshrc
@@ -135,7 +131,7 @@
             owner: ridgfam
             group: ridgfam
 
-        # Set ZSH_THEME to agnoster
+         # Set ZSH_THEME to agnoster
         - name: Set ZSH_THEME
           lineinfile:
             path: /home/ridgfam/.zshrc
@@ -175,7 +171,7 @@
       shell: source /home/ridgfam/.zshrc
       args:
         executable: /bin/zsh
-      become: yes
+      become: true
       become_user: ridgfam
       
 # 10. Downloads the Zabbix release package from the specified URL and saves it to '/tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb'.
@@ -184,8 +180,8 @@
 # 13. Installs the Zabbix agent 2 and its plugins using the 'apt' module.
 # 14. Enables and starts the Zabbix agent 2 service using the 'systemd' module.      
 
-- hosts: 'hl-rf-gamorr'
-  become: yes
+- hosts: 'new'
+  become: true
   tasks:
     # Download current Zabbix Agent 2 repo
     - name: Download Zabbix release
@@ -219,12 +215,12 @@
         enabled: yes
 
     # Set Zabbix Server for passive checks
-    - name: Set Zabbix Server
+    - name: Set Zabbix Server for passive checks
       lineinfile:
         path: /etc/zabbix/zabbix_agent2.conf
         regexp: '^Server='
         line: 'Server=10.5.1.8,zabbix.local.ridgfam.com'
-      become: yes
+      become: true
       check_mode: no
 
     # Set Zabbix Server for active checks
@@ -233,7 +229,7 @@
         path: /etc/zabbix/zabbix_agent2.conf
         regexp: '^ServerActive='
         line: 'ServerActive=10.5.1.8,zabbix.local.ridgfam.com'
-      become: yes
+      become: true
       check_mode: no        
 
     # Set Hostname configured in Zabbix Server for Active checks
@@ -241,6 +237,6 @@
       lineinfile:
         path: /etc/zabbix/zabbix_agent2.conf
         regexp: '^Hostname='
-        line: 'Hostname=<HOSTNAME>'
-      become: yes
+        line: 'Hostname=hl-rf-zeffo-003'
+      become: true
       check_mode: no
