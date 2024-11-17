@@ -1,10 +1,3 @@
-# This playbook sets up a new virtual machine by performing the following tasks:
-# 1. Updates the package cache and upgrades the system packages.
-# 2. Sets the timezone to America/Denver.
-# 3. Installs the zsh shell and common packages like htop, git, curl, and vim.
-# 4. Installs and configures the ufw firewall, allowing outgoing traffic and specific incoming ports.
-# 5. Sets up sudoers to allow the user 'ridgfam' to run commands without a password.
-
 - hosts: 'new'
   become: true
   tasks:
@@ -86,7 +79,6 @@
       ufw:
         state: enabled
 
-    # Set sudoers to allow my user to run commands without a password
     - name: Set up sudoers to allow no password for user
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
@@ -96,10 +88,7 @@
       become: true
       check_mode: no
 
-# 6. On the specified host, installs Oh-My-Zsh
-# 7. Sets up the .zshrc file
-# 8. Installs zsh-autosuggestions.
-# 9. Sends a failure notification email if any task in the specified host block fails.
+
     - block:
         - name: Install Oh-My-Zsh
           include_role:
@@ -108,7 +97,6 @@
             users:
               - username: ridgfam
 
-         # Configure my .zshrc file
         - name: Set file permissions for .zshrc
           file:
             path: /home/ridgfam/.zshrc
@@ -116,7 +104,6 @@
             owner: ridgfam
             group: ridgfam
 
-         # Set theme to agnoster
         - name: Set ZSH_THEME
           lineinfile:
             path: /home/ridgfam/.zshrc
@@ -125,7 +112,6 @@
             owner: ridgfam
             group: ridgfam
 
-        # Set my oh-my-zsh plugins
         - name: Set plugins
           lineinfile:
             path: /home/ridgfam/.zshrc
@@ -134,7 +120,6 @@
             owner: ridgfam
             group: ridgfam
 
-        # Install zsh-autosuggestions
         - name: Install zsh-autosuggestions
           git:
             repo: https://github.com/zsh-users/zsh-autosuggestions
@@ -157,69 +142,57 @@
       become: true
       become_user: ridgfam
       
-# 10. Downloads the Zabbix release package from the specified URL and saves it to '/tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb'.
-# 11. Installs the Zabbix release package using the 'apt' module.
-# 12. Updates the apt cache using the 'apt' module.
-# 13. Installs the Zabbix agent 2 and its plugins using the 'apt' module.
-# 14. Enables and starts the Zabbix agent 2 service using the 'systemd' module.      
 
-# - hosts: 'new'
-#   become: true
-#   tasks:
-#     # Download current Zabbix Agent 2 repo
-#     - name: Download Zabbix release
-#       get_url:
-#         url: https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu22.04_all.deb
-#         dest: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
-    
-#     # Install current Zabbix Agent 2 repo
-#     - name: Install Zabbix release
-#       apt:
-#         deb: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
+- hosts: 'new'
+  become: true
+  tasks:
+    - name: Download Zabbix release
+      get_url:
+        url: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-2+ubuntu24.04_all.deb
+        dest: /tmp/zabbix-release_7.0-2+ubuntu24.04_all.deb
 
-#     # Update apt cache
-#     - name: Update apt cache
-#       apt:
-#         update_cache: yes
+    - name: Install Zabbix release
+      apt:
+        deb: /tmp/zabbix-release_7.0-2+ubuntu24.04_all.deb
 
-#     # Install Zabbix agent 2 and any plugins
-#     - name: Install Zabbix agent 2 and plugins
-#       apt:
-#         name:
-#           - zabbix-agent2
-#           - zabbix-agent2-plugin-*
-#         state: present
+    - name: Update apt cache
+      apt:
+        update_cache: yes
 
-#     # Enable and start Zabbix agent service
-#     - name: Enable and start Zabbix agent service
-#       systemd:
-#         name: zabbix-agent2
-#         state: started
-#         enabled: yes
+    - name: Install Zabbix Agent 2 and plugins
+      apt:
+        name:
+          - zabbix-agent2
+          - zabbix-agent2-plugin-*
+        state: present
 
-#     # Set Zabbix Server for passive checks
-#     - name: Set Zabbix Server for passive checks
-#       lineinfile:
-#         path: /etc/zabbix/zabbix_agent2.conf
-#         regexp: '^Server='
-#         line: 'Server=10.5.1.8,zabbix.local.ridgfam.com'
-#       become: true
-#       check_mode: no
+    - name: Enable and start Zabbix Agent 2 service
+      systemd:
+        name: zabbix-agent2
+        state: started
+        enabled: yes
 
-#     # Set Zabbix Server for active checks
-#     - name: Set Zabbix Server
-#       lineinfile:
-#         path: /etc/zabbix/zabbix_agent2.conf
-#         regexp: '^ServerActive='
-#         line: 'ServerActive=10.5.1.8,zabbix.local.ridgfam.com'
-#       become: true
-#       check_mode: no        
+    - name: Configure Zabbix Server for passive checks
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Server='
+        line: 'Server=10.5.1.21,zeffo.ridgfam.com'
 
-#     # Set Hostname configured in Zabbix Server for Active checks
-#     - name: Set Zabbix Server
-#       lineinfile:
-#         path: /etc/zabbix/zabbix_agent2.conf
-#         regexp: '^Hostname='
-#         line: 'Hostname=hl-rf-zeffo-003'
-#       become: true
-#       check_mode: no
+    - name: Configure Zabbix Server for active checks
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^ServerActive='
+        line: 'ServerActive=10.5.1.21,zeffo.ridgfam.com'
+
+    - name: Set Hostname for Zabbix Agent
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Hostname='
+        line: 'Hostname={{ inventory_hostname }}'
+
+    - name: Restart Zabbix Agent 2 service
+      systemd:
+        name: zabbix-agent2
+        state: restarted
+        enabled: yes
+
