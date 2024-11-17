@@ -1,0 +1,53 @@
+CREATE DATABASE netbox;
+CREATE USER netbox WITH PASSWORD 'Xxa3UaVzNUMB';
+GRANT ALL PRIVILEGES ON DATABASE netbox TO netbox;
+\q
+
+
+CREATE DATABASE zabbix OWNER zabbix;
+CREATE USER zabbix WITH ENCRYPTED PASSWORD '82VeBjKNWLrC';
+GRANT ALL PRIVILEGES ON DATABASE zabbix TO zabbix;
+\q
+
+server {
+    listen 80;
+    server_name zeffo.ridgfam.com;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name zeffo.ridgfam.com;
+
+    ssl_certificate /etc/letsencrypt/live/zeffo.ridgfam.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/zeffo.ridgfam.com/privkey.pem;
+
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-XSS-Protection "1; mode=block";
+
+    location / {
+        allow 10.0.0.0/8;
+        deny all;
+
+        proxy_pass http://10.5.1.21:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+
+sudo -u postgres psql
+
+CREATE DATABASE netbox;
+CREATE USER netbox WITH PASSWORD 'Xxa3UaVzNUMB';
+ALTER DATABASE netbox OWNER TO netbox;
+-- the next two commands are needed on PostgreSQL 15 and later
+\connect netbox;
+GRANT CREATE ON SCHEMA public TO netbox;
+\q

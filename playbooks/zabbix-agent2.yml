@@ -1,4 +1,58 @@
-    - hosts: all
-      become: true
-      roles:
-         - { role: revenni.zabbix_agent2, tags: zabbix_agent2 }
+# 10. Downloads the Zabbix release package from the specified URL and saves it to '/tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb'.
+# 11. Installs the Zabbix release package using the 'apt' module.
+# 12. Updates the apt cache using the 'apt' module.
+# 13. Installs the Zabbix agent 2 and its plugins using the 'apt' module.
+# 14. Enables and starts the Zabbix agent 2 service using the 'systemd' module.      
+
+- hosts: 'zabbix-agent'
+  become: true
+  tasks:
+    - name: Download Zabbix release
+      get_url:
+        url: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-2+ubuntu24.04_all.deb
+        dest: /tmp/zabbix-release_7.0-2+ubuntu24.04_all.deb
+
+    - name: Install Zabbix release
+      apt:
+        deb: /tmp/zabbix-release_7.0-2+ubuntu24.04_all.deb
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Zabbix Agent 2 and plugins
+      apt:
+        name:
+          - zabbix-agent2
+          - zabbix-agent2-plugin-*
+        state: present
+
+    - name: Enable and start Zabbix Agent 2 service
+      systemd:
+        name: zabbix-agent2
+        state: started
+        enabled: yes
+
+    - name: Configure Zabbix Server for passive checks
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Server='
+        line: 'Server=10.5.1.21,zeffo.ridgfam.com'
+
+    - name: Configure Zabbix Server for active checks
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^ServerActive='
+        line: 'ServerActive=10.5.1.21,zeffo.ridgfam.com'
+
+    - name: Set Hostname for Zabbix Agent
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        regexp: '^Hostname='
+        line: 'Hostname={{ inventory_hostname }}'
+
+    - name: Restart Zabbix Agent 2 service
+      systemd:
+        name: zabbix-agent2
+        state: restarted
+        enabled: yes
