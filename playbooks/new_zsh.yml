@@ -1,0 +1,152 @@
+---
+- name: Configure Oh My Zsh for WSL only
+  hosts: wsl
+  become: true
+  gather_facts: true
+
+  vars:
+    target_user: ridgw
+    target_home: "/home/ridgw"
+    ohmyzsh_dir: "{{ target_home }}/.oh-my-zsh"
+    ohmyzsh_install_script: "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+    zsh_custom: "{{ ohmyzsh_dir }}/custom"
+    zsh_theme: "agnoster"
+    zsh_plugins:
+      - git
+      - zsh-autosuggestions
+      - history
+
+  pre_tasks:
+    - name: Ensure this is Ubuntu
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+        fail_msg: "This playbook is only intended for Ubuntu under WSL."
+
+    - name: Detect whether host is WSL
+      ansible.builtin.set_fact:
+        is_wsl: >-
+          {{
+            'microsoft' in (ansible_kernel | lower)
+            or 'wsl' in (ansible_kernel | lower)
+            or 'microsoft' in (ansible_kernel_version | lower)
+            or 'wsl' in (ansible_kernel_version | lower)
+          }}
+
+    - name: Stop if this is not WSL
+      ansible.builtin.assert:
+        that:
+          - is_wsl
+        fail_msg: "This host does not appear to be WSL. This playbook is WSL-only."
+
+    - name: Ensure target user exists
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ target_user }}"
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - zsh
+          - git
+          - curl
+          - fonts-powerline
+        state: present
+        update_cache: true
+
+    - name: Check whether Oh My Zsh is already installed
+      ansible.builtin.stat:
+        path: "{{ ohmyzsh_dir }}"
+      become: true
+      become_user: "{{ target_user }}"
+      register: ohmyzsh_stat
+
+    - name: Download Oh My Zsh install script
+      ansible.builtin.get_url:
+        url: "{{ ohmyzsh_install_script }}"
+        dest: "/tmp/install-oh-my-zsh.sh"
+        mode: "0755"
+      when: not ohmyzsh_stat.stat.exists
+
+    - name: Install Oh My Zsh unattended for target user
+      ansible.builtin.shell: |
+        RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-oh-my-zsh.sh
+      args:
+        creates: "{{ ohmyzsh_dir }}"
+      become: true
+      become_user: "{{ target_user }}"
+      environment:
+        HOME: "{{ target_home }}"
+        USER: "{{ target_user }}"
+      when: not ohmyzsh_stat.stat.exists
+
+    - name: Ensure custom plugins directory exists
+      ansible.builtin.file:
+        path: "{{ zsh_custom }}/plugins"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Install zsh-autosuggestions plugin
+      ansible.builtin.git:
+        repo: "https://github.com/zsh-users/zsh-autosuggestions"
+        dest: "{{ zsh_custom }}/plugins/zsh-autosuggestions"
+        clone: true
+        update: true
+      become: true
+      become_user: "{{ target_user }}"
+      environment:
+        HOME: "{{ target_home }}"
+        USER: "{{ target_user }}"
+
+    - name: Ensure .zshrc exists
+      ansible.builtin.file:
+        path: "{{ target_home }}/.zshrc"
+        state: touch
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+
+    - name: Set ZSH theme
+      ansible.builtin.lineinfile:
+        path: "{{ target_home }}/.zshrc"
+        regexp: '^ZSH_THEME='
+        line: 'ZSH_THEME="{{ zsh_theme }}"'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Set plugins
+      ansible.builtin.lineinfile:
+        path: "{{ target_home }}/.zshrc"
+        regexp: '^plugins='
+        line: 'plugins=({{ zsh_plugins | join(" ") }})'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Ensure Oh My Zsh path is set
+      ansible.builtin.lineinfile:
+        path: "{{ target_home }}/.zshrc"
+        regexp: '^export ZSH='
+        line: 'export ZSH="{{ ohmyzsh_dir }}"'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Ensure Oh My Zsh is sourced from .zshrc
+      ansible.builtin.lineinfile:
+        path: "{{ target_home }}/.zshrc"
+        regexp: '^source \$ZSH/oh-my-zsh\.sh'
+        line: 'source $ZSH/oh-my-zsh.sh'
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+
+    - name: Get zsh path
+      ansible.builtin.command: which zsh
+      register: zsh_path
+      changed_when: false
+
+    - name: Set default shell to zsh for target user
+      ansible.builtin.user:
+        name: "{{ target_user }}"
+        shell: "{{ zsh_path.stdout }}"
